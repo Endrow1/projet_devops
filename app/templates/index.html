@@ -1,10 +1,87 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tu préfères... ?</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <main>
+        <header>
+            <h1>🤔 Tu préfères... ?</h1>
+            <p class="subtitle" id="subtitle">Clique sur ton choix !</p>
+        </header>
 
+        <section class="card question-card">
+            <!-- État : VOTE -->
+            <div class="voting-area" id="voting-area">
+                <button class="choice-btn" id="choice-a" data-choice="A">
+                    <span class="choice-label">A</span>
+                    <span class="choice-text" id="text-a">Chargement...</span>
+                </button>
+
+                <div class="vs-divider">VS</div>
+
+                <button class="choice-btn" id="choice-b" data-choice="B">
+                    <span class="choice-label">B</span>
+                    <span class="choice-text" id="text-b">Chargement...</span>
+                </button>
+            </div>
+
+            <!-- État : RÉSULTATS (caché par défaut) -->
+            <div class="results-area" id="results-area" hidden>
+                <p class="your-choice">Ton choix : <strong id="your-choice-text"></strong> ✓</p>
+
+                <div class="result-row" id="result-a">
+                    <div class="result-header">
+                        <span class="result-label">A</span>
+                        <span class="result-text" id="result-text-a"></span>
+                        <span class="result-percent" id="result-percent-a"></span>
+                    </div>
+                    <div class="bar"><div class="bar-fill" id="bar-fill-a"></div></div>
+                    <span class="vote-count" id="vote-count-a"></span>
+                </div>
+
+                <div class="result-row" id="result-b">
+                    <div class="result-header">
+                        <span class="result-label">B</span>
+                        <span class="result-text" id="result-text-b"></span>
+                        <span class="result-percent" id="result-percent-b"></span>
+                    </div>
+                    <div class="bar"><div class="bar-fill" id="bar-fill-b"></div></div>
+                    <span class="vote-count" id="vote-count-b"></span>
+                </div>
+
+                <button class="next-btn" id="next-btn">
+                    Question suivante →
+                </button>
+            </div>
+        </section>
+
+        <section class="card form-card">
+            <h2>Une idée de question ?</h2>
+            <p class="form-desc">Propose-la à la communauté !</p>
+
+            <form id="add-form">
+                <label class="form-row">
+                    <span class="form-label">A</span>
+                    <input type="text" id="new-a" placeholder="Première option..." required maxlength="255">
+                </label>
+
+                <div class="form-vs">OU</div>
+
+                <label class="form-row">
+                    <span class="form-label">B</span>
+                    <input type="text" id="new-b" placeholder="Deuxième option..." required maxlength="255">
+                </label>
+
+                <button type="submit" class="submit-btn">Ajouter la question</button>
+            </form>
+            <p id="add-feedback"></p>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
