@@ -1,0 +1,16 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Vérifier que le service Flask est bien enregistré et actif sous Systemd
+      ansible.builtin.systemd:
+        name: flask
+      register: service_status
+      failed_when: service_status.status.ActiveState != "active"
+
+    - name: Prouver que le port 5000 est bien ouvert et en écoute
+      ansible.builtin.shell: "ss -tlnp | grep :5000"
+      register: port_check
+      failed_when: port_check.rc != 0
+      changed_when: false

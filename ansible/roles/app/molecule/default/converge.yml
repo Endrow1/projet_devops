@@ -1,0 +1,41 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  vars:
+    db_host: "127.0.0.1"
+    db_port: "3306"
+    db_name: "test_db"
+    db_user: "test_user"
+    db_password: "root_password"
+
+  tasks:
+    - name: "Préparation : Créer l'utilisateur ubuntu pour Docker"
+      ansible.builtin.user:
+        name: ubuntu
+        shell: /bin/bash
+        home: /home/ubuntu
+        create_home: yes
+
+    - name: "Préparation : Installer MySQL Serveur dans le conteneur"
+      ansible.builtin.apt:
+        name: mysql-server
+        state: present
+        update_cache: yes
+
+    - name: "Préparation : Démarrer le service MySQL"
+      ansible.builtin.service:
+        name: mysql
+        state: started
+
+    - name: "Préparation : Créer la base de données de test et son utilisateur dédié"
+      ansible.builtin.shell: |
+        sudo mysql -e "CREATE DATABASE IF NOT EXISTS test_db;"
+        sudo mysql -e "CREATE USER IF NOT EXISTS 'test_user'@'127.0.0.1' IDENTIFIED BY 'root_password';"
+        sudo mysql -e "GRANT ALL PRIVILEGES ON test_db.* TO 'test_user'@'127.0.0.1';"
+        sudo mysql -e "FLUSH PRIVILEGES;"
+      changed_when: false
+
+    - name: "Inclure le rôle actuel (Déploiement de Flask)"
+      include_role:
+        name: "../../../../app"
