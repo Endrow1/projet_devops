@@ -5,10 +5,11 @@
 
 L'infrastructure réseau est segmentée au sein d'un VPC dédié afin de cloisonner hermétiquement les couches applicatives et de données conformément aux exigences de sécurité.
 
-* **Point d'entrée unique (Load Balancer) :** Un AWS Application Load Balancer (ALB) public reçoit tout le trafic Internet. Il expose l'application sur le port HTTP (80) et le port sécurisé HTTPS (443). Le chiffrement SSL/TLS est configuré directement sur l'ALB via un certificat auto-signé importé dans AWS IAM.
-* **Instances Applicatives (Haute Disponibilité) :** 2 instances EC2 identiques (Ubuntu 24.04 Noble) hébergent l'application Flask. Elles sont réparties de manière redondante sur deux zones de disponibilité distinctes (eu-west-3a et eu-west-3b) et reçoivent le trafic filtré de l'ALB.
-* **Base de données isolée :** Une instance managée AWS RDS MySQL 8.0 stocke les données d'application. Elle est positionnée dans des sous-réseaux privés et isolés du Web.
-* **Espace de Sauvegarde :** Un bucket AWS S3 sécurisé est provisionné pour accueillir les archives de sauvegardes automatiques de la base de données.
+* **Point d'entrée unique :** Un AWS Application Load Balancer (ALB) public reçoit tout le trafic Internet. Il expose l'application sur le port sécurisé HTTPS (443). Le chiffrement SSL/TLS est configuré directement sur l'ALB via un certificat auto-signé importé dans AWS IAM.
+* **Instances Applicatives :** 2 instances EC2 identiques (Ubuntu 24.04 Noble) hébergent l'application Flask. Elles sont réparties de manière redondante sur deux zones (eu-west-3a et eu-west-3b) et reçoivent le trafic de l'ALB.
+* **Base de données isolée :** Une instance managée AWS RDS MySQL 8.0 stocke les données d'application. Elle est positionnée dans des sous-réseaux isolés du Web.
+* **Espace de Sauvegarde :** Un bucket AWS S3 sécurisé est provisionné pour accueillir les sauvegardes de la base de données.
+
 
 ### Flux Réseau & Ports
 
@@ -17,18 +18,17 @@ L'infrastructure réseau est segmentée au sein d'un VPC dédié afin de cloison
 * **`app_sg`** (EC2 Apps) -> Écoute port Flask (5000) depuis le groupe de sécurité `lb_sg` uniquement.
 * **`db_sg`** (AWS RDS) -> Écoute port MySQL (3306) depuis le groupe de sécurité `app_sg` uniquement.
 
----
 
-## Stratégie de Sauvegarde & Restauration (Disaster Recovery)
+## Stratégie de Sauvegarde & Restauration
 
 ### 1. Sauvegarde Automatisée (Backup)
 Le rôle Ansible `backup` configure une tâche planifiée  sur le serveur de production :
 * **Script de Backup :** Un template Bash `backup.sh.j2` est déployé. Il exécute une commande `mysqldump` pour AWS RDS (en incluant les options `--set-gtid-purged=OFF` et `--column-statistics=0` afin de garantir la compatibilité sans exiger de privilèges `SUPER`).
-* **Planification (Cron) :** Le script est exécuté automatiquement **toutes les minutes**.
+* **Planification (Cron) :** Le script est exécuté automatiquement toutes les minutes.
   * *Justification :* Cette fréquence a été choisie pour le cadre de l'évaluation du TP afin de constater la création immédiate d'archives dans le bucket S3, sans devoir patienter 24 heures. Dans un cadre de production réel, une récurrence quotidienne hors des heures de pointe serait privilégiée.
-* **Exécution unique (`run_once: true`) :** Afin d'éviter les écritures concurrentes et les conflits de fichiers sur le bucket S3, Ansible configure le Cron de sauvegarde sur **une seule instance applicative** de l'inventaire.
+* **Exécution unique (`run_once: true`) :** Afin d'éviter les écritures concurrentes et les conflits de fichiers sur le bucket S3, Ansible configure le Cron de sauvegarde sur une seule instance applicative de l'inventaire.
 
-### 2. Procédure de Restauration rapide
+### 2. Procédure de Restauration
 pour cloner la base de données, un playbook indépendant `restore.yml` permet de restaurer la dernière sauvegarde disponible sur S3 en une seule commande :
 
 ansible-playbook -i ansible/inventory.ini ansible/restore.yml
@@ -39,9 +39,8 @@ ansible-playbook -i ansible/inventory.ini ansible/restore.yml
 3. Injection directe des structures et des données dans l'instance privée AWS RDS MySQL.
 4. Suppression sécurisée du fichier SQL temporaire sur le disque local de la VM.
 
----
 
-## Guide de Déploiement (Étape par étape)
+## Guide de Déploiement
 
 ### Prérequis système
 * Terraform installé localement.
@@ -73,12 +72,33 @@ ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
 ### Étape 4 : Validation du fonctionnement HTTPS
 1. Récupérez l'URL DNS publique de votre Application Load Balancer (fournie dans les outputs de Terraform).
 2. Ouvrez votre navigateur et saisissez l'adresse sous la forme : `https://<VOTRE-DNS-ALB>`.
-3. Le navigateur affichera un avertissement rouge **"Connexion non privée" / "Non sécurisé"** : **C'est le comportement attendu**. S'agissant d'un certificat SSL auto-signé généré dynamiquement par Terraform pour le TP, le navigateur ne connaît pas l'autorité de certification. Les données échangées sont néanmoins entièrement chiffrées de bout en bout (TLS/SSL).
+3. Le navigateur affichera un avertissement rouge "Non sécurisé" : C'est le comportement attendu. S'agissant d'un certificat SSL auto-signé généré dynamiquement par Terraform pour le TP, le navigateur ne connaît pas l'autorité de certification. Les données échangées sont néanmoins entièrement chiffrées de bout en bout (TLS/SSL).
 4. En cliquant sur les détails du certificat, vous pourrez valider l'identité de l'émetteur : `Efrei Projet DevOps`.
 
----
 
 ## Gestion de la Sécurité & Secrets
 
 * Le fichier `.gitignore` bloque en amont l'envoi des fichiers d'états locaux (`*.tfstate`, `*.tfstate.backup`), du fichier de définition des variables (`*.tfvars`) ainsi que du fichier d'inventaire temporaire généré localement (`inventory.ini`).
 * Les clés privées et les mots de passe de production ne transitent jamais dans du code applicatif et ne sont pas sur git.
+
+
+## Tests (Molecule)
+
+Le rôle `app` inclut des tests avec Molecule et Docker (Ubuntu 24.04). Ils valident l'installation de Flask/Gunicorn et testent si l'application répond bien avec un code `200 OK` sur le port `5000`.
+
+### Lancer le test
+```bash
+cd ansible/roles/app
+molecule test
+```
+
+## Note d'Architecture : Gestion des Artifacts
+
+Dans le cadre de ce TP, l'archive ZIP contenant le code source de l'application Flask est stockée directement au sein du dossier `files/` du rôle Ansible pour des raisons de simplicité de déploiement. 
+
+**En conditions réelles de production :**
+* **Rôle de la CI/CD :** C'est Jenkins qui déclenche un build à chaque commit et génère l'archive de l'application (l'artifact).
+* **Gestionnaire de dépôts :** Ce ZIP de production est ensuite passé vers un gestionnaire d'artifacts comme Nexus. Ansible est alors configuré pour aller télécharger la version demandée depuis ce dépôt lors du déploiement.
+
+**Limitation du test d'écoute (Port 5000) :**
+L'application Flask s'appuie sur un ORM (SQLAlchemy) qui initie une connexion obligatoire à la base de données AWS RDS dès son initialisation. L'environnement de test Molecule s'exécutant dans un conteneur Docker isolé et éphémère sans accès à la base de données de production Flask ne démmare pas.
