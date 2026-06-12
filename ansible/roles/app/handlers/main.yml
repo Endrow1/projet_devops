@@ -1,0 +1,6 @@
+---
+- name: Redémarrer Flask
+  systemd:
+    name: flask
+    state: restarted
+    daemon_reload: yes

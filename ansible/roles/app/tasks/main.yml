@@ -1,0 +1,60 @@
+---
+- name: Installer les paquets système requis
+  apt:
+    name:
+      - python3-pip
+      - python3-venv
+      - unzip
+    state: present
+    update_cache: yes
+
+- name: Créer le dossier de l'application
+  file:
+    path: /var/www/flask_app
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+
+- name: Désarchiver le code Flask sur le serveur
+  unarchive:
+    src: app.zip
+    dest: /var/www/flask_app/
+    owner: ubuntu
+    group: ubuntu
+
+- name: Créer l'environnement virtuel Python et installer les dépendances
+  pip:
+    requirements: /var/www/flask_app/requirements.txt
+    virtualenv: /var/www/flask_app/venv
+    virtualenv_command: python3 -m venv
+
+- name: Installer gunicorn dans le venv
+  pip:
+    name: gunicorn
+    virtualenv: /var/www/flask_app/venv
+
+- name: Générer le fichier de configuration environnement .env
+  copy:
+    dest: /var/www/flask_app/.env
+    content: |
+      DB_HOST={{ db_host }}
+      DB_USER={{ db_user }}
+      DB_PASSWORD={{ db_password }}
+      DB_NAME={{ db_name }}
+      DB_PORT=3306
+    owner: ubuntu
+    group: ubuntu
+    mode: '0600'
+
+- name: Déployer le fichier de service Systemd pour Flask
+  template:
+    src: flask.service.j2
+    dest: /etc/systemd/system/flask.service
+  notify: Redémarrer Flask
+
+- name: Activer et démarrer le service Flask
+  systemd:
+    name: flask
+    enabled: yes
+    state: started

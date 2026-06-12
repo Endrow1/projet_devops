@@ -1,0 +1,13 @@
+---
+- name: "Déploiement de l'application Flask"
+  hosts: app_servers
+  become: yes
+  roles:
+    - app
+
+- name: "Configuration du backup sur une seule vm"
+  hosts: app_servers
+  become: yes
+  roles:
+    - role: backup
+      run_once: true

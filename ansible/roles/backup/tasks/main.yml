@@ -1,0 +1,47 @@
+---
+- name: Mettre à jour le cache apt et installer le client MySQL
+  apt:
+    name: mysql-client
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Vérifier si AWS CLI est déjà installé
+  command: which aws
+  register: aws_cli_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Télécharger et installer AWS CLI (si non présent)
+  shell: |
+    cd /tmp
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    apt-get install -y unzip
+    unzip -o awscliv2.zip
+    ./aws/install --update
+  become: yes
+  when: aws_cli_check.rc != 0
+
+- name: Créer le dossier pour les scripts
+  file:
+    path: /opt/app_backups
+    state: directory
+    mode: '0700'
+    owner: root
+    group: root
+  become: yes
+
+- name: Déployer le script de sauvegarde
+  template:
+    src: backup.sh.j2
+    dest: /opt/app_backups/backup_rds.sh
+    mode: '0700'
+  become: yes
+
+- name: Configurer le Cron
+  cron:
+    name: "Sauvegarde automatisée de la BDD vers S3"
+    minute: "*"
+    hour: "*"
+    job: "/opt/app_backups/backup_rds.sh >> /var/log/backup_rds.log 2>&1"
+  become: yes

@@ -1,30 +1,45 @@
 variable "aws_region" {
-  description = "Région AWS"
-  type        = string
+  type    = string
+  default = "eu-west-3" 
 }
 
-variable "project_name" {
-  description = "Nom du projet"
-  type        = string
-}
-
-variable "ami_id" {
-  description = "AMI Ubuntu"
-  type        = string
+variable "environment" {
+  type    = string
+  default = "dev"
 }
 
 variable "instance_type" {
-  description = "Type des instances"
-  type        = string
-  default     = "t2.micro"
+  type    = string
+  default = "t3.micro"
 }
 
-variable "key_name" {
-  description = "Nom de la clé SSH AWS"
+variable "db_password" {
+  type        = string
+  sensitive   = true
+}
+
+variable "db_name" {
+  type        = string
+  default     = "projet_devops_db"
+}
+
+variable "db_user" {
+  type        = string
+  default     = "gotaga"
+}
+
+variable "ssh_public_key_path" {
   type        = string
 }
 
-variable "my_ip" {
-  description = "IP autorisée en SSH"
+variable "ssh_private_key_path" {
+  type        = string
+}
+
+variable "aws_secret_access_key" {
+  type        = string
+}
+
+variable "aws_access_key_id" {
   type        = string
 }

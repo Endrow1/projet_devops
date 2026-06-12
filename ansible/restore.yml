@@ -1,0 +1,19 @@
+---
+- name: Restauration de la base de données depuis le S3
+  hosts: app_servers
+  run_once: true
+  tasks:
+    - name: Télécharger le backup unique depuis S3
+      shell: "aws s3 cp s3://{{ aws_s3_bucket }}/backups/latest_backup.sql /tmp/restore.sql"
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+        AWS_DEFAULT_REGION: "eu-west-3"
+
+    - name: Injecter le dump SQL dans RDS
+      shell: "mysql -h {{ db_host }} -u {{ db_user }} -p'{{ db_password }}' {{ db_name }} < /tmp/restore.sql"
+
+    - name: Nettoyer le fichier temporaire sur la VM
+      file:
+        path: /tmp/restore.sql
+        state: absent

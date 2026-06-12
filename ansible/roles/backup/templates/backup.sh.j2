@@ -1,0 +1,42 @@
+#!/bin/bash
+
+export AWS_ACCESS_KEY_ID="{{ aws_access_key }}"
+export AWS_SECRET_ACCESS_KEY="{{ aws_secret_key }}"
+export AWS_DEFAULT_REGION="eu-west-3"
+
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="/tmp"
+LOCAL_FILE="backup_${TIMESTAMP}.sql"
+FULL_PATH="${BACKUP_DIR}/${LOCAL_FILE}"
+
+# Configuration des cibles S3
+BUCKET_NAME="{{ aws_s3_bucket }}"
+S3_TEMP_FILE="new_backup.sql"
+S3_FINAL_FILE="latest_backup.sql"
+
+# Nettoyage local automatique quoi qu'il arrive
+trap 'rm -f "${FULL_PATH}"' EXIT
+
+# 1. Dump de la base de données en local
+mysqldump -h {{ db_host }} -u {{ db_user }} -p'{{ db_password }}' \
+  --set-gtid-purged=OFF \
+  --column-statistics=0 \
+  {{ db_name }} > "${FULL_PATH}"
+
+if [ $? -ne 0 ]; then
+    echo "Erreur lors du dump MySQL. L'ancien backup S3 n'a pas été touché." >&2
+    exit 1
+fi
+
+# 2. Envoi vers S3 sous un nom temporaire
+aws s3 cp "${FULL_PATH}" "s3://${BUCKET_NAME}/backups/${S3_TEMP_FILE}"
+
+if [ $? -ne 0 ]; then
+    echo "Erreur lors du transfert vers S3. Le fichier temporaire est incomplet, l'ancien backup S3 est préservé." >&2
+    exit 1
+fi
+
+# 3. Le nouveau fichier est bien sur S3, On peut écraser l'ancien
+aws s3 mv "s3://${BUCKET_NAME}/backups/${S3_TEMP_FILE}" "s3://${BUCKET_NAME}/backups/${S3_FINAL_FILE}"
+
+echo "--- Fin du backup : $(date) ---"

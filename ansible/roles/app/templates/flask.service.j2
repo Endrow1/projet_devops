@@ -1,0 +1,13 @@
+[Unit]
+Description=Application Flask DevOps Efrei
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/var/www/flask_app
+EnvironmentFile=/var/www/flask_app/.env
+ExecStart=/var/www/flask_app/venv/bin/python3 -m gunicorn --workers 3 --bind 0.0.0.0:5000 app:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
